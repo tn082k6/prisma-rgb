@@ -122,6 +122,11 @@ class Updater:
                 subprocess.run([str(py), "-m", "pip", "install", "-q", "-r", str(self.app_dir / "requirements.txt")],
                                creationflags=0x08000000, timeout=600)
             shutil.rmtree(tmp, ignore_errors=True)
+            try:
+                from . import launcher
+                launcher.build(self.app_dir)
+            except Exception:
+                log.exception("launcher build failed (VBS fallback stays)")
             log.info("update installed, restarting")
             self.restart()
         except Exception as e:
@@ -129,11 +134,11 @@ class Updater:
             self.state.update(installing=False, error=f"Update fehlgeschlagen: {e}")
 
     def restart(self):
-        vbs = self.app_dir / "Prisma.vbs"
+        from . import launcher
         visible = getattr(self, "is_visible", None)
-        arg = " --show" if visible and visible() else ""
+        cmd = launcher.command(self.app_dir, "--show" if visible and visible() else "")
         # wait until this process has exited (single-instance lock), then start again
-        subprocess.Popen(f'cmd /c timeout /t 3 /nobreak >nul & wscript.exe "{vbs}"{arg}',
+        subprocess.Popen(f'cmd /c timeout /t 3 /nobreak >nul & start "" {cmd}',
                          creationflags=0x08000000 | 0x00000008, close_fds=True)
         self.store.save(now=True)
         os._exit(0)

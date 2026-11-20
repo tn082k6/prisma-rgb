@@ -123,6 +123,12 @@ def main():
     api = Api(store, backend, engine, audio, APP_DIR)
     from core.updater import Updater
     api.updater = Updater(store, APP_DIR)
+    try:  # move an existing Windows-autostart entry onto Prisma.exe
+        from core.api import STARTUP_LNK
+        if STARTUP_LNK.exists() and (APP_DIR / "Prisma.exe").exists():
+            threading.Thread(target=api.set_autostart, args=(True,), daemon=True).start()
+    except Exception:
+        pass
     from core.fanclient import FanClient
     api.fans = engine.fans = FanClient(store)
     from core.mqtt import HomeAssistantBridge
@@ -219,7 +225,8 @@ def main():
         commit = WINFUNCTYPE(ctypes.c_long, c_void_p)(vtbl[7])
         release = WINFUNCTYPE(c_ulong, c_void_p)(vtbl[2])
         fmt = "9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"
-        vbs = str(APP_DIR / "Prisma.vbs")
+        from core import launcher
+        relaunch = launcher.command(APP_DIR)
         keep = []
 
         def put(pid, text):
@@ -230,7 +237,7 @@ def main():
             return set_value(ps, byref(k), byref(v))
 
         try:
-            r = [put(2, f'wscript.exe "{vbs}"'),   # RelaunchCommand
+            r = [put(2, relaunch),                 # RelaunchCommand
                  put(3, f"{ico},0"),              # RelaunchIconResource
                  put(4, "Prisma"),                # RelaunchDisplayNameResource
                  put(5, "Prisma.RGBStudio")]      # ID (last)

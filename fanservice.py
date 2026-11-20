@@ -111,6 +111,41 @@ def curve_value(points, t):
     return pts[-1][1]
 
 
+GUARD_PROCS = {"rgbfusion.exe", "gbt_dl_lib.exe", "runled.exe", "prerun.exe", "apcent.exe"}
+GUARD_RUNONCE = ("PreRun", "SelLed")  # Gigabyte re-adds these on every boot
+
+
+def guard_conflicts():
+    """Keep Gigabyte RGB Fusion from fighting Prisma: end its processes and drop its RunOnce entries.
+    Runs in the elevated fan service, so it also works for entries Gigabyte writes to HKLM."""
+    done = []
+    try:
+        import psutil
+        for p in psutil.process_iter(["name"]):
+            if (p.info.get("name") or "").lower() in GUARD_PROCS:
+                try:
+                    p.kill()
+                    done.append(p.info["name"])
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    try:
+        import winreg
+        path = r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\RunOnce"
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE) as k:
+            for n in GUARD_RUNONCE:
+                try:
+                    winreg.DeleteValue(k, n)
+                    done.append("RunOnce:" + n)
+                except FileNotFoundError:
+                    pass
+    except Exception:
+        pass
+    if done:
+        log.info("conflict guard removed: %s", ", ".join(done))
+
+
 def boost_openrgb():
     """OpenRGB shares the low-level hardware driver (PawnIO) with us. If it holds the driver while being
     starved under full CPU load, our control loop waits for seconds (priority inversion). Run it high too."""
@@ -360,6 +395,9 @@ class FanService:
         return max(lo, min(hi, val))
 
     def step(self):
+        if self.cfg.get("guard", True) and time.time() - getattr(self, "_guard_at", 0) > 10:
+            self._guard_at = time.time()
+            threading.Thread(target=guard_conflicts, daemon=True, name="guard").start()
         self.read()
         cfg = self.cfg
         # emergency only looks at the real chip temperatures (CPU package / Tctl, GPU core) – the GPU
@@ -593,6 +631,17 @@ def main():
     except Exception:
         pass
     svc = FanService()
+    try:  # run the fan task through Prisma.exe too, so Task Manager shows "Prisma" instead of "Python"
+        exe = APP_DIR / "Prisma.exe"
+        if exe.exists():
+            import subprocess
+            ps = (f"$t = Get-ScheduledTask -TaskPath '\\Prisma\\' -TaskName 'Fans'; "
+                  f"if ($t.Actions[0].Execute -ne '{exe}') {{ "
+                  f"Set-ScheduledTask -TaskPath '\\Prisma\\' -TaskName 'Fans' "
+                  f"-Action (New-ScheduledTaskAction -Execute '{exe}' -Argument '--fans' -WorkingDirectory '{APP_DIR}') }}")
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, creationflags=0x08000000)
+    except Exception:
+        pass
     atexit.register(svc.release_all)  # hand fans back to the BIOS on any orderly exit
     try:
         import ctypes

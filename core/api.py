@@ -341,9 +341,13 @@ class Api:
 
     def set_autostart(self, on):
         if on:
-            target = self.app_dir / "Prisma.vbs"
+            exe = self.app_dir / "Prisma.exe"
+            if exe.exists():  # native starter -> shows as "Prisma" in Task Manager
+                tgt, arg = str(exe), "--minimized"
+            else:
+                tgt, arg = "wscript.exe", f'\\"{self.app_dir / "Prisma.vbs"}\\" --minimized'
             ps = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{STARTUP_LNK}');"
-                  f"$s.TargetPath='wscript.exe';$s.Arguments='\"{target}\" --minimized';"
+                  f"$s.TargetPath='{tgt}';$s.Arguments=\"{arg}\";"
                   f"$s.WorkingDirectory='{self.app_dir}';$s.IconLocation='{self.app_dir / 'ui' / 'prisma.ico'}';$s.Save()")
             subprocess.run(["powershell", "-NoProfile", "-Command", ps], creationflags=0x08000000)
         elif STARTUP_LNK.exists():

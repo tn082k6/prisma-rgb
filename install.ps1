@@ -48,10 +48,13 @@ $targets = @(
     (Join-Path ([Environment]::GetFolderPath('Programs')) 'Prisma.lnk'),
     (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Prisma.lnk')
 )
+# native starter Prisma.exe (shows as "Prisma" in Task Manager); falls back to Prisma.vbs if it cannot be built
+& (Join-Path $venv 'Scripts\python.exe') -c "import sys; sys.path.insert(0, r'$dst'); from core import launcher; print('Prisma.exe gebaut' if launcher.build(r'$dst') else 'Prisma.exe nicht gebaut')"
+$exe = Join-Path $dst 'Prisma.exe'
 foreach ($lnk in $targets) {
     $s = $shell.CreateShortcut($lnk)
-    $s.TargetPath = 'wscript.exe'
-    $s.Arguments = '"' + (Join-Path $dst 'Prisma.vbs') + '"'
+    if (Test-Path $exe) { $s.TargetPath = $exe; $s.Arguments = '' }
+    else { $s.TargetPath = 'wscript.exe'; $s.Arguments = '"' + (Join-Path $dst 'Prisma.vbs') + '"' }
     $s.WorkingDirectory = $dst
     $s.IconLocation = (Join-Path $dst 'ui\prisma.ico')
     $s.Description = 'Prisma RGB Studio'
