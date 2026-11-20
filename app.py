@@ -183,8 +183,61 @@ def main():
             small = u32.LoadImageW(None, ico, 1, 32, 32, 0x10)
             u32.SendMessageW(hwnd, 0x80, 1, big)    # WM_SETICON, ICON_BIG
             u32.SendMessageW(hwnd, 0x80, 0, small)  # ICON_SMALL
+            set_taskbar_identity(hwnd, ico)
         except Exception as e:
             log.info("window icon not applied: %s", e)
+
+    def set_taskbar_identity(hwnd, ico):
+        """Per-window AppUserModel properties: the taskbar (and pinning) use these over any cached icon."""
+        import ctypes
+        import uuid
+        from ctypes import POINTER, WINFUNCTYPE, byref, c_ulong, c_ushort, c_void_p, Structure
+
+        class GUID(Structure):
+            _fields_ = [("b", ctypes.c_ubyte * 16)]
+
+        def guid(s):
+            g = GUID()
+            ctypes.memmove(g.b, uuid.UUID(s).bytes_le, 16)
+            return g
+
+        class PKEY(Structure):
+            _fields_ = [("fmtid", GUID), ("pid", c_ulong)]
+
+        class PVAR(Structure):
+            _fields_ = [("vt", c_ushort), ("r1", c_ushort), ("r2", c_ushort), ("r3", c_ushort),
+                        ("p", c_void_p), ("p2", c_void_p)]
+
+        iid = guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")
+        ps = c_void_p()
+        hr = ctypes.windll.shell32.SHGetPropertyStoreForWindow(c_void_p(hwnd), byref(iid), byref(ps))
+        if hr != 0 or not ps:
+            log.info("property store not available: %s", hr)
+            return
+        vtbl = ctypes.cast(ps, POINTER(POINTER(c_void_p)))[0]
+        set_value = WINFUNCTYPE(ctypes.c_long, c_void_p, POINTER(PKEY), POINTER(PVAR))(vtbl[6])
+        commit = WINFUNCTYPE(ctypes.c_long, c_void_p)(vtbl[7])
+        release = WINFUNCTYPE(c_ulong, c_void_p)(vtbl[2])
+        fmt = "9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"
+        vbs = str(APP_DIR / "Prisma.vbs")
+        keep = []
+
+        def put(pid, text):
+            buf = ctypes.create_unicode_buffer(text)
+            keep.append(buf)
+            v = PVAR(vt=31, p=ctypes.cast(buf, c_void_p).value)  # VT_LPWSTR
+            k = PKEY(fmtid=guid(fmt), pid=pid)
+            return set_value(ps, byref(k), byref(v))
+
+        try:
+            r = [put(2, f'wscript.exe "{vbs}"'),   # RelaunchCommand
+                 put(3, f"{ico},0"),              # RelaunchIconResource
+                 put(4, "Prisma"),                # RelaunchDisplayNameResource
+                 put(5, "Prisma.RGBStudio")]      # ID (last)
+            commit(ps)
+            log.info("taskbar identity set: %s", r)
+        finally:
+            release(ps)
 
     window.events.shown += dark_titlebar
     api.window = window
