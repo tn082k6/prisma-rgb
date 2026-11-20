@@ -111,6 +111,19 @@ def curve_value(points, t):
     return pts[-1][1]
 
 
+def boost_openrgb():
+    """OpenRGB shares the low-level hardware driver (PawnIO) with us. If it holds the driver while being
+    starved under full CPU load, our control loop waits for seconds (priority inversion). Run it high too."""
+    try:
+        import psutil
+        for p in psutil.process_iter(["name"]):
+            if (p.info.get("name") or "").lower() == "openrgb.exe" and p.nice() != psutil.HIGH_PRIORITY_CLASS:
+                p.nice(psutil.HIGH_PRIORITY_CLASS)
+                log.info("OpenRGB priority raised (pid %s)", p.pid)
+    except Exception as e:
+        log.info("could not raise OpenRGB priority: %s", e)
+
+
 # ---------------------------------------------------------------------------- GPU reader process
 def gpu_worker(q):
     """Separate process: reads GPU sensors every 2 s and hands them to the service (never blocks it)."""
@@ -247,6 +260,7 @@ class FanService:
             self._indexed_at = time.time()
             if not getattr(self, "cpu_id", None) or self.cpu_id not in self.sensors:
                 self._setup_cpu_sensor()
+            boost_openrgb()
         vals = {}
         for sid, (hname, s) in self.sensors.items():
             v = s.Value
@@ -377,6 +391,8 @@ class FanService:
             cur = self.out.get(ch["id"], target)
             if ch["id"] in self.override and not self.emergency:
                 new = target  # calibration steps must be exact
+            elif getattr(self, "step_ms", 0) > 2000 and target > cur:
+                new = target  # the last step stalled (hardware busy) -> catch up immediately, no ramp
             else:
                 # smooth: up fast (10 %/s), down gently (4 %/s)
                 new = min(target, cur + 10) if target > cur else max(target, cur - 4)

@@ -1,2 +1,2 @@
-VERSION = "1.3.8"
+VERSION = "1.4.0"
 REPO = "tn082k6/prisma-rgb"

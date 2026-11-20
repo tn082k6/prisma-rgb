@@ -307,7 +307,7 @@ class Backend:
         if self.is_wireless(dev):
             return 25.0  # measured: radio keyboard keeps up with ~30, keep headroom
         if dev.type == "dram":
-            return 40.0  # SMBus: latency starts to build above ~40 fps
+            return 25.0  # SMBus is shared with the fan service's hardware driver – keep the bus traffic low
         return 0.0
 
     def _send(self, dev, rgb_u8):
