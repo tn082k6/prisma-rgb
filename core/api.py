@@ -74,6 +74,9 @@ class Api:
     def fan_enable(self, on):
         return self.fans.request({"cmd": "enable", "on": bool(on)})
 
+    def fan_calibrate(self):
+        return self.fans.request({"cmd": "calibrate"})
+
     def fan_import(self):
         return self.fans.request({"cmd": "import"})
 

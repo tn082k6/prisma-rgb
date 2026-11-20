@@ -25,8 +25,10 @@ def ensure_lib():
     return False
 
 
-def load_computer():
-    """Return an opened LibreHardwareMonitor Computer (coreclr / .NET 10)."""
+def load_computer(cpu=True, gpu=True, board=True):
+    """Return an opened LibreHardwareMonitor Computer (coreclr / .NET 10).
+    cpu=False skips the per-core CPU readout, which needs time on every core and stalls for
+    many seconds under full load – the fan service uses the mainboard's CPU sensor instead."""
     from pythonnet import load
     cfg = LHM_DIR / "prisma.runtimeconfig.json"
     if not cfg.exists():
@@ -38,10 +40,10 @@ def load_computer():
     clr.AddReference(str(LHM_DIR / "LibreHardwareMonitorLib.dll"))
     from LibreHardwareMonitor.Hardware import Computer
     c = Computer()
-    c.IsCpuEnabled = True
-    c.IsMotherboardEnabled = True
-    c.IsGpuEnabled = True
-    c.IsControllerEnabled = True
+    c.IsCpuEnabled = bool(cpu)
+    c.IsMotherboardEnabled = bool(board)
+    c.IsGpuEnabled = bool(gpu)
+    c.IsControllerEnabled = bool(board)
     c.Open()
     return c
 
@@ -56,9 +58,13 @@ def walk(computer):
         yield from rec(h)
 
 
-def update(computer):
+def update(computer, timings=None):
+    import time as _t
     for h in walk(computer):
+        t0 = _t.perf_counter()
         h.Update()
+        if timings is not None:
+            timings[h.Name] = round((_t.perf_counter() - t0) * 1000)
 
 
 if __name__ == "__main__":  # read-only probe

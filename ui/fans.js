@@ -19,8 +19,12 @@ function fanStartTimer() {
   fanTimer = setInterval(async () => {
     if (UI.page !== 'fans') { clearInterval(fanTimer); fanTimer = null; return; }
     const wasRunning = FAN && FAN.running;
+    const wasCal = !!(FAN && FAN.status && FAN.status.calibration && FAN.status.calibration.running);
     await fanPoll(false);
-    if (!!(FAN && FAN.running) !== !!wasRunning) { await fanPoll(true); renderPage(); return; }
+    const nowCal = !!(FAN && FAN.status && FAN.status.calibration && FAN.status.calibration.running);
+    if (!!(FAN && FAN.running) !== !!wasRunning || wasCal !== nowCal) { await fanPoll(true); renderPage(); return; }
+    const cl = $('#calibLog'); const c = FAN && FAN.status && FAN.status.calibration;
+    if (cl && c) cl.textContent = (c.running ? 'Kalibrierung läuft … ' + (c.channel || '') + '\n' : '') + c.log.slice(-6).join('\n');
     fanLive();
   }, 1500);
 }
@@ -75,7 +79,7 @@ function pageFans() {
   }
   const st = FAN.status, cfg = FCFG;
   const pick = re => st.temps.find(t => re.test(t.name));
-  const tiles = [pick(/CPU Package|Tctl|Tdie/), pick(/Core Max/), pick(/^GPU Core|GPU Temperature/), pick(/Hot Spot/)].filter(Boolean);
+  const tiles = [pick(/^CPU$|CPU Package|Tctl|Tdie/), pick(/^GPU Core|GPU Temperature/), pick(/Hot Spot/), pick(/GPU Memory/)].filter(Boolean);
   const tempOpts = sel => st.temps.map(t => `<option value="${esc(t.id)}" ${t.id === sel ? 'selected' : ''}>${esc(t.hw)} · ${esc(t.name)}</option>`).join('');
   const curveOpts = sel => cfg.curves.map(c => `<option value="${esc(c.id)}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
   return head + `
@@ -88,16 +92,21 @@ function pageFans() {
         <small>Leise −12 % · Gaming +15 % · Volle Leistung 100 % (Pumpe ausgenommen)</small></div>
     </div>
     <div class="fan-grid">
-      <div class="card panel"><h4>Lüfter <button class="btn sm" data-act="fan-import">${icon('download')} Aus FanControl übernehmen</button></h4>
+      <div class="card panel"><h4>Lüfter <span class="row" style="gap:6px"><button class="btn sm" data-act="fan-calibrate" ${st.calibration && st.calibration.running ? 'disabled' : ''} title="Misst für jeden Lüfter, ab wann er stehen bleibt (Pumpe ausgenommen)">${icon('refresh')} Kalibrieren</button><button class="btn sm" data-act="fan-import">${icon('download')} FanControl</button></span></h4>
+        ${st.calibration && (st.calibration.running || st.calibration.log.length) ? `<div class="note" id="calibLog" style="margin-bottom:10px;white-space:pre-line;max-height:120px;overflow:auto">${st.calibration.running ? '<b>Kalibrierung läuft …</b> ' + esc(st.calibration.channel || '') + '\n' : ''}${esc(st.calibration.log.slice(-6).join('\n'))}</div>` : ''}
         ${cfg.channels.map((ch, i) => `<div class="fch" data-ch="${i}">
           <div class="row between"><input type="text" class="fname" data-chname value="${esc(ch.name)}">
             <div class="row" style="gap:14px"><span class="dim" data-frpm="${esc(ch.fan || '')}">–</span><b data-fpct="${esc(ch.id)}" style="min-width:52px;text-align:right">–</b></div></div>
           <div class="fbar"><i></i></div>
           <div class="row wrap" style="gap:12px">
-            <div class="seg">${[['curve', 'Kurve'], ['fixed', 'Fest'], ['auto', 'BIOS']].map(([m, l]) => `<button data-chmode="${m}" class="${ch.mode === m ? 'on' : ''}">${l}</button>`).join('')}</div>
+            <div class="seg">${[['smart', 'Automatik'], ['curve', 'Kurve'], ['fixed', 'Fest'], ['auto', 'BIOS']].map(([m, l]) => `<button data-chmode="${m}" class="${ch.mode === m ? 'on' : ''}">${l}</button>`).join('')}</div>
             ${ch.mode === 'curve' ? `<select data-chcurve>${curveOpts(ch.curve)}</select>` : ''}
+            ${ch.mode === 'smart' ? `<select data-chsensor>${tempOpts(ch.sensor)}</select>
+              <div class="range" style="min-width:220px"><span class="dim" style="font-size:11.5px;width:56px">Ziel</span><input type="range" min="45" max="85" value="${ch.target ?? 70}" data-chtarget style="--p:${((ch.target ?? 70) - 45) / 40 * 100}%"><output>${ch.target ?? 70} °C</output></div>` : ''}
             ${ch.mode === 'fixed' ? `<div class="range" style="min-width:180px"><input type="range" min="0" max="100" value="${ch.fixed}" data-chfixed style="--p:${ch.fixed}%"><output>${Math.round(ch.fixed)} %</output></div>` : ''}
           </div>
+          ${ch.mode === 'smart' ? `<div class="hint">Automatik hält die Temperatur so leise wie möglich unter dem Ziel. Leise = Ziel +5 °C, Gaming = −5 °C.</div>` : ''}
+          ${ch.calibration ? `<div class="hint">Kalibriert ${esc(ch.calibration.date || '')}: max. ${ch.calibration.rpm_max ?? '–'} U/min, bleibt stehen bei ${ch.calibration.stops_at ?? '–'} %</div>` : ''}
           ${ch.mode !== 'auto' ? `<div class="row wrap" style="gap:16px"><div class="range" style="min-width:200px"><span class="dim" style="font-size:11.5px;width:70px">Minimum</span><input type="range" min="0" max="80" value="${ch.min}" data-chmin style="--p:${ch.min / 0.8}%"><output>${Math.round(ch.min)} %</output></div>
             <label class="row" style="gap:8px;font-size:12px" class="dim"><span class="dim">Profil gilt</span><span class="switch"><input type="checkbox" data-chprof ${ch.profile !== false ? 'checked' : ''}><span></span></span></label></div>` : ''}
         </div>`).join('') || '<div class="dim">Keine Lüfter gefunden.</div>'}
@@ -169,6 +178,11 @@ document.addEventListener('click', async e => {
   }
   if (t.dataset.fprof) { FCFG.profile = t.dataset.fprof; await api('fan_profile', t.dataset.fprof); return renderPage(); }
   const chEl = t.closest('[data-ch]'), cvEl = t.closest('[data-cv]');
+  if (t.dataset.chmode === 'smart' && chEl) {  // sensible defaults: case fans follow the GPU core, everything else the CPU package
+    const ch = FCFG.channels[+chEl.dataset.ch], temps = FAN.status.temps;
+    if (!ch.sensor) { const gpu = /gpu|gehäuse|case|unten/i.test(ch.name); ch.sensor = (temps.find(x => gpu ? x.name === 'GPU Core' : /^CPU$|CPU Package/.test(x.name)) || temps[0] || {}).id; }
+    if (ch.target == null) ch.target = /gpu|gehäuse|case|unten/i.test(ch.name) ? 72 : 70;
+  }
   if (t.dataset.chmode && chEl) { FCFG.channels[+chEl.dataset.ch].mode = t.dataset.chmode; if (t.dataset.chmode === 'curve' && !FCFG.channels[+chEl.dataset.ch].curve) FCFG.channels[+chEl.dataset.ch].curve = FCFG.curves[0]?.id; return fanSave(true); }
   if (t.dataset.cvdel !== undefined && cvEl) {
     const c = FCFG.curves[+cvEl.dataset.cv];
@@ -182,6 +196,7 @@ document.addEventListener('change', async e => {
   if (d.fanen !== undefined) { FCFG.enabled = t.checked; await api('fan_enable', t.checked); toast(t.checked ? 'Prisma regelt jetzt die Lüfter' : 'Lüfter wieder beim BIOS'); return renderPage(); }
   if (d.chname !== undefined) { FCFG.channels[+chEl.dataset.ch].name = t.value; return fanSave(); }
   if (d.chcurve !== undefined) { FCFG.channels[+chEl.dataset.ch].curve = t.value; return fanSave(); }
+  if (d.chsensor !== undefined) { FCFG.channels[+chEl.dataset.ch].sensor = t.value; return fanSave(); }
   if (d.chprof !== undefined) { FCFG.channels[+chEl.dataset.ch].profile = t.checked; return fanSave(); }
   if (d.cvname !== undefined) { FCFG.curves[+cvEl.dataset.cv].name = t.value; return fanSave(); }
   if (d.cvsensor !== undefined) { FCFG.curves[+cvEl.dataset.cv].sensor = t.value; return fanSave(); }
@@ -200,6 +215,7 @@ document.addEventListener('input', e => {
   const t = e.target, d = t.dataset, chEl = t.closest('[data-ch]'), cvEl = t.closest('[data-cv]');
   const out = v => { if (t.nextElementSibling) t.nextElementSibling.textContent = v; };
   if (d.chfixed !== undefined) { FCFG.channels[+chEl.dataset.ch].fixed = +t.value; out(t.value + ' %'); return fanSave(); }
+  if (d.chtarget !== undefined) { FCFG.channels[+chEl.dataset.ch].target = +t.value; t.style.setProperty('--p', ((t.value - 45) / 40 * 100) + '%'); out(t.value + ' °C'); return fanSave(); }
   if (d.chmin !== undefined) { FCFG.channels[+chEl.dataset.ch].min = +t.value; t.style.setProperty('--p', (t.value / 0.8) + '%'); out(t.value + ' %'); return fanSave(); }
   if (d.cvfixed !== undefined) { FCFG.curves[+cvEl.dataset.cv].fixed = +t.value; out(t.value + ' %'); return fanSave(); }
   if (d.femer !== undefined) { FCFG.safety.emergency_temp = +t.value; t.style.setProperty('--p', ((t.value - 75) / 25 * 100) + '%'); out(t.value + ' °C'); return fanSave(); }
@@ -235,9 +251,13 @@ document.addEventListener('contextmenu', e => {
 });
 async function fanAction(a) {
   if (a === 'fan-setup') { const r = await api('fan_setup'); toast(r.msg, !r.ok); setTimeout(async () => { await fanPoll(true); renderPage(); }, 6000); return; }
+  if (a === 'fan-calibrate') {
+    if (!confirm('Lüfter kalibrieren? Jeder Lüfter wird nacheinander kurz von 100 % abgesenkt (ca. 1–2 Minuten pro Lüfter, die Pumpe bleibt unberührt). Bei über 80 °C bricht Prisma automatisch ab.')) return;
+    const r = await api('fan_calibrate'); toast(r.ok ? 'Kalibrierung gestartet' : 'Erst „Prisma regelt“ einschalten', !r.ok); await fanPoll(true); return renderPage();
+  }
   if (a === 'fan-import') { if (!confirm('Kurven und Lüfter aus FanControl neu übernehmen? Eigene Änderungen gehen verloren.')) return; await api('fan_import'); await fanPoll(true); toast('Aus FanControl übernommen'); return renderPage(); }
   if (a === 'fan-addcurve') {
-    const cpu = FAN.status.temps.find(t => /CPU Package|Tctl/.test(t.name)) || FAN.status.temps[0] || {};
+    const cpu = FAN.status.temps.find(t => /^CPU$|CPU Package|Tctl/.test(t.name)) || FAN.status.temps[0] || {};
     FCFG.curves.push({ id: 'k' + Date.now().toString(36), name: 'Kurve ' + (FCFG.curves.length + 1), sensor: cpu.id,
       points: CURVE_PRESETS.ausgewogen[1].map(p => [...p]), hyst: 2 });
     fanSave(true); toast('Neue Kurve angelegt – unten bei „Lüfter“ einem Lüfter zuweisen');
