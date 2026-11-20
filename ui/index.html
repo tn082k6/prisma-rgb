@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prisma</title>
+  <link rel="icon" href="prisma.png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body class="web">
+  <div class="ambient"><i></i><i></i><i></i></div>
+  <div class="noise"></div>
+  <div class="shell">
+    <header class="titlebar pywebview-drag-region">
+      <div class="brand"><img src="prisma.png" alt=""><span>Prisma</span><small>RGB Studio</small></div>
+      <div class="drag pywebview-drag-region"></div>
+      <div class="status-pill" id="status" data-go="settings"><span class="dot"></span><span class="txt">Verbinde …</span></div>
+      <div class="winbtns">
+        <button data-win="min" title="Minimieren"></button>
+        <button data-win="max" title="Maximieren"></button>
+        <button data-win="close" class="close" title="In den Infobereich"></button>
+      </div>
+    </header>
+    <div class="body">
+      <aside class="side">
+        <nav class="nav" id="nav"></nav>
+        <h6>Geräte</h6>
+        <div class="devlist" id="quick"></div>
+        <div class="spacer"></div>
+        <div class="master" id="master"></div>
+      </aside>
+      <main class="main" id="main"></main>
+    </div>
+  </div>
+  <div class="toasts" id="toasts"></div>
+  <script src="icons.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

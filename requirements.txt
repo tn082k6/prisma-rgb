@@ -1,0 +1,7 @@
+pywebview
+openrgb-python
+numpy
+psutil
+pystray
+pillow
+pyaudiowpatch
