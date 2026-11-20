@@ -16,6 +16,12 @@ DEFAULT_SETTINGS = {
     "fps": 60,
     "smoothing": 25,
     "auto_update": True,
+    "mqtt_enabled": False,
+    "mqtt_host": "",
+    "mqtt_port": 1883,
+    "mqtt_user": "",
+    "mqtt_pass": "",
+    "removed_presets": [],
     "transition_ms": 700,
     "gamma": 1.0,
     "saturation": 100,
@@ -52,6 +58,8 @@ def S(sid, name, category, desc, layers):
 
 CATEGORY_OF = {}
 for _cat, _ids in {
+    "White Build": "wb_snow wb_arctic wb_cotton wb_lavender wb_peach wb_champagne wb_mist wb_pastel wb_iceblade "
+                   "wb_sakura wb_mint wb_aurora wb_sunrise wb_studio",
     "Gaming": "neon neonstadt gaming_red toxic matrix helix scanner",
     "Bunt": "rainbow rainbow_rotor cascade confetti police ripple heartbeat vaporwave",
     "Natur": "aurora ocean lava campfire forest stars galaxy",
@@ -70,8 +78,64 @@ def preset_scenes():
     return scenes
 
 
-def _preset_scenes():
+def _white_build_scenes():
+    W = "White Build"
     return [
+        S("wb_snow", "Schneeweiß", W, "Reines, kühles Weiß – lässt weiße Teile strahlen. Lüfter atmen ganz leicht.", [
+            L("white", "all", kelvin=6200),
+            L("breathing", "fans", palette=["#ffffff", "#dcefff"], floor=72, speed=12),
+        ]),
+        S("wb_studio", "Studio-Weiß", W, "Neutrales Weiß wie im Fotostudio – perfekt für Fotos vom Build.", [
+            L("white", "all", kelvin=4800, brightness=90),
+        ]),
+        S("wb_arctic", "Arktis", W, "Eisblaue Wellen auf Weiß, Lüfter mit sanften Eis-Rotoren.", [
+            L("wave", "all", "group", palette="arctic", scale=1, speed=18),
+            L("rotor", "fans", palette=["#ffffff", "#5fd6ff"], blades=2, duty=55, soft=75, speed=20),
+        ]),
+        S("wb_iceblade", "Eisrotor", W, "Weißes Grundlicht, darin kreisen hellblaue Flügel.", [
+            L("static", "all", color="#dff4ff", brightness=70),
+            L("rotor", "fans", palette=["#ffffff", "#7fd8ff", "#ffffff"], blades=3, duty=45, soft=60, speed=28),
+        ]),
+        S("wb_cotton", "Zuckerwatte", W, "Rosa und Babyblau fließen ineinander – der Klassiker für White Builds.", [
+            L("flow", "all", "group", palette="cotton", scale=2, contrast=15, speed=16),
+        ]),
+        S("wb_lavender", "Lavendelfeld", W, "Weiß mit zartem Lavendel, ruhig und edel.", [
+            L("wave", "all", "group", palette="lavender", scale=1, speed=14),
+            L("gradient", "type:dram", "group", palette="lavender", mirror=True),
+        ]),
+        S("wb_peach", "Pfirsichblüte", W, "Warme Pfirsich- und Korallentöne, gemütlich auf Weiß.", [
+            L("flow", "all", "group", palette="peach", scale=2, contrast=20, speed=14),
+            L("halo", "fans", palette="peach", speed=18),
+        ]),
+        S("wb_champagne", "Champagner", W, "Warmweiß und Gold – elegant, wie ein Hotel bei Nacht.", [
+            L("gradient", "all", "group", palette="champagne", mirror=True),
+            L("breathing", "fans", palette=["#fff3dc", "#f5d28a"], floor=55, speed=14),
+        ]),
+        S("wb_mist", "Morgennebel", W, "Weiße Lichtschleier ziehen langsam durch das Gehäuse.", [
+            L("aurora", "all", "group", palette=["#ffffff", "#d8ecff", "#bfe0ff", "#ffffff"], curtain=40, speed=12),
+        ]),
+        S("wb_pastel", "Pastell-Regenbogen", W, "Ein Regenbogen in Pastell – bunt, aber nie grell.", [
+            L("wave", "all", "group", palette="pastel", scale=1, speed=18),
+        ]),
+        S("wb_sakura", "Kirschblüte Weiß", W, "Weiß und Rosa, auf dem RAM funkeln Blüten.", [
+            L("flow", "all", "group", palette=["#ffffff", "#ffd6e4", "#ffb3cb", "#ffffff"], scale=2, contrast=15, speed=14),
+            L("twinkle", "type:dram", bg="#ffe6ee", palette=["#ffffff", "#ff9ec0"], density=25, speed=30),
+        ]),
+        S("wb_mint", "Minze & Weiß", W, "Frisches Mint auf Weiß.", [
+            L("wave", "all", "group", palette=["#ffffff", "#bfffe8", "#7dffd0", "#ffffff"], scale=1, speed=15),
+        ]),
+        S("wb_aurora", "Pastell-Polarlicht", W, "Nordlicht in Pastell – Mint, Hellblau und Flieder.", [
+            L("aurora", "all", "group", palette="pastel_aurora", curtain=45, speed=16),
+        ]),
+        S("wb_sunrise", "Sonnenaufgang Pastell", W, "Pfirsich, Rosé und Himmelblau als sanfter Verlauf.", [
+            L("gradient", "all", "group", palette=["#ffd1a8", "#ffb3c7", "#d9c2ff", "#bfe3ff"], mirror=True),
+            L("breathing", "fans", palette=["#ffd1a8", "#bfe3ff"], floor=60, speed=12),
+        ]),
+    ]
+
+
+def _preset_scenes():
+    return _white_build_scenes() + [
         S("neon", "Neon Synthwave", "Gaming", "Pink-violette Wellen mit rotierenden Lüftern.", [
             L("wave", "all", "group", palette="synthwave", scale=1, speed=35),
             L("rotor", "fans", palette=["#ff00a0", "#00d0ff"], blades=2, duty=45, soft=40, speed=40),
@@ -223,6 +287,12 @@ class Store:
         self.scenes = data.get("scenes") or preset_scenes()
         self.schedule = data.get("schedule", [])
         self.favorites = data.get("favorites", ["neon", "aurora", "campfire", "party", "focus", "night"])
+        # add built-in scenes introduced by newer versions (unless the user deleted them on purpose)
+        have = {s["id"] for s in self.scenes}
+        removed = set(self.settings.get("removed_presets", []))
+        new = [p for p in preset_scenes() if p["id"] not in have and p["id"] not in removed]
+        if new and data:
+            self.scenes = new + self.scenes if new[0]["id"].startswith("wb_") else self.scenes + new
         self._sanitize()
         self.save(now=True)
 
@@ -282,6 +352,9 @@ class Store:
 
     def delete_scene(self, sid):
         with self.lock:
+            sc = self.scene(sid)
+            if sc and sc.get("builtin"):
+                self.settings.setdefault("removed_presets", []).append(sid)
             self.scenes = [s for s in self.scenes if s["id"] != sid]
             self.favorites = [f for f in self.favorites if f != sid]
             self.save()

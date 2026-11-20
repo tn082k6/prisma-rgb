@@ -355,7 +355,7 @@ function afterRender() { const h = afterHooks; afterHooks = []; h.forEach(f => f
    =================================================================== */
 function pageScenes() {
   const act = scene(S.settings.active_scene) || S.scenes[0];
-  const ORDER = ['Gaming', 'Bunt', 'Natur', 'Entspannt', 'Musik', 'Praktisch', 'Eigene'];
+  const ORDER = ['White Build', 'Gaming', 'Bunt', 'Natur', 'Entspannt', 'Musik', 'Praktisch', 'Eigene'];
   const present = new Set(S.scenes.map(s => s.category || 'Eigene'));
   const cats = ['Alle', 'Favoriten', ...ORDER.filter(c => present.has(c)), ...[...present].filter(c => !ORDER.includes(c))];
   const q = UI.q.toLowerCase();
@@ -778,6 +778,13 @@ function pageSettings() {
       ${rg('audio_gain', 'Musik-Empfindlichkeit', 20, 300, 5, '%')}
       ${S.audio.error ? `<div class="note warn">${esc(S.audio.error)}</div>` : ''}
     </div>
+    <div class="card panel"><h4>Home Assistant</h4>
+      <div class="conn ${S.ha && S.ha.connected ? 'ok' : ''}" id="haConn"><span class="big"></span><div class="grow"><b>${S.ha && S.ha.connected ? 'Verbunden' : 'Nicht verbunden'}</b><div class="dim" style="font-size:12px">${esc(S.ha ? S.ha.status : '')}</div></div></div>
+      ${sw('mqtt_enabled', 'Mit Home Assistant verbinden', 'Über MQTT. In Home Assistant erscheinen automatisch „PC-Licht“ und „PC-Szene“.')}
+      <div class="row"><div class="field grow"><span class="lbl">MQTT-Server</span><input type="text" data-sett="mqtt_host" value="${esc(s.mqtt_host)}"></div><div class="field" style="width:100px"><span class="lbl">Port</span><input type="number" data-sett="mqtt_port" value="${s.mqtt_port}"></div></div>
+      <div class="row"><div class="field grow"><span class="lbl">Benutzer</span><input type="text" data-sett="mqtt_user" value="${esc(s.mqtt_user)}" autocomplete="off"></div><div class="field grow"><span class="lbl">Passwort</span><input type="password" data-sett="mqtt_pass" value="${s.mqtt_pass ? '••••••••' : ''}" autocomplete="new-password" data-secret></div></div>
+      ${S.ha && S.ha.connected ? `<div class="note">In Home Assistant: <span class="mono">${esc(S.ha.light)}</span> und <span class="mono">${esc(S.ha.select)}</span></div>` : '<span class="hint">Tipp: In Home Assistant unter Einstellungen → Personen einen eigenen Benutzer „prisma“ anlegen und hier eintragen.</span>'}
+    </div>
     <div class="card panel"><h4>Updates</h4>${updatePanel()}
       ${sw('auto_update', 'Updates automatisch installieren', 'Prisma prüft alle 6 Stunden auf GitHub und aktualisiert sich selbst. Einstellungen und Szenen bleiben erhalten.')}
     </div>
@@ -930,8 +937,13 @@ document.addEventListener('change', async e => {
   if (d.lyen) { const ly = editScene().layers.find(l => l.id === d.lyen); ly.enabled = t.checked; return saveScene(true); }
   if (d.bool) return setParam(d.bool, t.checked, true);
   if (d.tgt) { const ly = curLayer(); ly.target[d.tgt] = d.tgt === 'zone' ? +t.value : t.value; if (d.tgt === 'key' && ly.target.type === 'zone') ly.target.zone = 0; return saveScene(true); }
-  if (d.set) { S.settings[d.set] = t.checked; return api('set_settings', { [d.set]: t.checked }); }
-  if (d.sett) { const v = t.type === 'number' ? +t.value : t.value; S.settings[d.sett] = v; return api('set_settings', { [d.sett]: v }); }
+  const haRefresh = () => setTimeout(async () => { await refresh(); if (UI.page === 'settings') renderPage(); }, 2500);
+  if (d.set) { S.settings[d.set] = t.checked; await api('set_settings', { [d.set]: t.checked }); if (d.set.startsWith('mqtt_')) haRefresh(); return; }
+  if (d.sett) {
+    if (d.secret !== undefined && t.value === '••••••••') return;
+    const v = t.type === 'number' ? +t.value : t.value; if (d.secret === undefined) S.settings[d.sett] = v;
+    await api('set_settings', { [d.sett]: v }); if (d.sett.startsWith('mqtt_')) haRefresh(); return;
+  }
   if (t.id === 'orgbPath') { S.settings.openrgb_path = t.value.trim(); await api('set_settings', { openrgb_path: t.value.trim() }); return renderPage(); }
   if (d.actAutostart !== undefined) { S.autostart = await api('set_autostart', t.checked); toast(S.autostart ? 'Startet jetzt mit Windows' : 'Autostart entfernt'); return; }
   if (d.devEn !== undefined) { const dv = device(t.closest('[data-dev]').dataset.dev); dv.cfg.enabled = t.checked; return api('set_device', dv.key, { enabled: t.checked }); }

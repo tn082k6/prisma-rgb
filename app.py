@@ -131,6 +131,8 @@ def main():
     api = Api(store, backend, engine, audio, APP_DIR)
     from core.updater import Updater
     api.updater = Updater(store, APP_DIR)
+    from core.mqtt import HomeAssistantBridge
+    api.ha = HomeAssistantBridge(store, engine)
     port_arg = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--port=")), "0")
     port, token = serve(api, APP_DIR / "ui", int(port_arg))
     url = f"http://127.0.0.1:{port}/?token={token}"
@@ -145,9 +147,51 @@ def main():
             return
 
     import webview
+    try:  # own taskbar identity -> own button with the Prisma logo, not grouped under Python
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Prisma.RGBStudio")
+    except Exception:
+        pass
     hidden = (minimized or store.settings.get("start_minimized", False)) and "--show" not in sys.argv
-    window = webview.create_window("Prisma", "about:blank" if hidden else url, width=1400, height=900, min_size=(1120, 720), frameless=True,
-                                   easy_drag=False, background_color="#07070c", hidden=hidden)
+    # normal Windows frame: resizable borders + standard minimise/maximise/close (Till wanted that)
+    window = webview.create_window("Prisma", "about:blank" if hidden else url, width=1400, height=900, min_size=(1000, 680),
+                                   resizable=True, background_color="#111113", hidden=hidden)
+
+    def dark_titlebar():
+        """Dark caption matching the app (Windows 11 DWM attributes)."""
+        try:
+            import ctypes
+            hwnd = int(window.native.Handle.ToInt64())
+            dwm = ctypes.windll.dwmapi
+            on = ctypes.c_int(1)
+            dwm.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(on), 4)                       # immersive dark mode
+            cap = ctypes.c_int(0x0013110F)                                                 # caption #0f1113 (BGR)
+            dwm.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(cap), 4)
+            txt = ctypes.c_int(0x00EFECEC)
+            dwm.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(txt), 4)
+        except Exception as e:  # older Windows: keep the default caption
+            log.info("dark titlebar not applied: %s", e)
+        set_window_icon()
+
+    def set_window_icon():
+        """Prisma logo in title bar, taskbar and Alt+Tab instead of the Python icon."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            u32 = ctypes.windll.user32
+            u32.LoadImageW.restype = wintypes.HANDLE
+            u32.LoadImageW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+            u32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+            hwnd = int(window.native.Handle.ToInt64())
+            ico = str(APP_DIR / "ui" / "prisma.ico")
+            big = u32.LoadImageW(None, ico, 1, 256, 256, 0x10)
+            small = u32.LoadImageW(None, ico, 1, 32, 32, 0x10)
+            u32.SendMessageW(hwnd, 0x80, 1, big)    # WM_SETICON, ICON_BIG
+            u32.SendMessageW(hwnd, 0x80, 0, small)  # ICON_SMALL
+        except Exception as e:
+            log.info("window icon not applied: %s", e)
+
+    window.events.shown += dark_titlebar
     api.window = window
     state = {"quitting": False}
 

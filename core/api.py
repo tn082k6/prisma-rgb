@@ -44,7 +44,7 @@ class Api:
             dd["cfg"] = st.device_cfg(d)
             devs.append(dd)
         return {
-            "settings": st.settings,
+            "settings": {**st.settings, "mqtt_pass": "set" if st.settings.get("mqtt_pass") else ""},  # never send the secret
             "scenes": st.scenes,
             "favorites": st.favorites,
             "schedule": st.schedule,
@@ -56,7 +56,11 @@ class Api:
             "autostart": STARTUP_LNK.exists(),
             "version": VERSION,
             "update": self.updater.state if getattr(self, "updater", None) else None,
+            "ha": self.ha.info() if getattr(self, "ha", None) else None,
         }
+
+    def ha_info(self):
+        return self.ha.info() if getattr(self, "ha", None) else None
 
     # ---------------------------------------------------------------- updates
     def update_check(self):
@@ -142,10 +146,14 @@ class Api:
 
     # ---------------------------------------------------------------- settings
     def set_settings(self, patch):
+        if patch.get("mqtt_pass") == "set":  # placeholder echoed back by the UI
+            patch = {k: v for k, v in patch.items() if k != "mqtt_pass"}
         self.store.settings.update(patch)
         self.store.save()
         if any(k in patch for k in ("openrgb_host", "openrgb_port")):
             threading.Thread(target=self.backend.reconnect, daemon=True).start()
+        if any(k.startswith("mqtt_") for k in patch) and getattr(self, "ha", None):
+            threading.Thread(target=self.ha.restart, daemon=True).start()
         return self.store.settings
 
     def set_power(self, on):

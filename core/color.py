@@ -24,6 +24,14 @@ PALETTES = {
     "matrix":    ("Matrix", ["#000000", "#003000", "#00a020", "#40ff60", "#d0ffd0"]),
     "police":    ("Blaulicht", ["#ff0000", "#0030ff"]),
     "heat":      ("Auslastung", ["#00ff40", "#a0ff00", "#ffd000", "#ff6000", "#ff0000"]),
+    # white-build palettes: bright, low saturation – they bounce nicely off white parts
+    "snow":      ("Schnee", ["#ffffff", "#e8f4ff", "#cfe6ff", "#ffffff"]),
+    "arctic":    ("Arktis", ["#ffffff", "#bff3ff", "#5fd6ff", "#2a8cff", "#e6faff"]),
+    "cotton":    ("Zuckerwatte", ["#ffd1ec", "#c9e7ff", "#ffffff", "#e6d4ff"]),
+    "lavender":  ("Lavendel", ["#ffffff", "#e3d4ff", "#b89cff", "#f2ecff"]),
+    "peach":     ("Pfirsich", ["#ffe0cc", "#ffb8a0", "#fff1e6", "#ffcfb8"]),
+    "champagne": ("Champagner", ["#fff3dc", "#ffe2a8", "#ffffff", "#f5d28a"]),
+    "pastel_aurora": ("Pastell-Polarlicht", ["#c8ffe9", "#bfe3ff", "#e2ccff", "#ffffff"]),
 }
 
 

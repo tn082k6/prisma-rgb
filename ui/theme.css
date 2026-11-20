@@ -6,7 +6,8 @@ body { font-size: 13.5px; }
 .noise { display: none; }
 ::selection { background: rgba(46, 197, 255, .3); }
 
-.titlebar { background: #0c0c0e; border-bottom: 1px solid var(--line); }
+.titlebar { background: #0f1113; border-bottom: 1px solid var(--line); }
+.winbtns { display: none !important; } /* the native Windows title bar has the window buttons now */
 .brand { font-weight: 600; letter-spacing: .4px; }
 .brand img { filter: none; }
 .brand small { color: var(--dim); letter-spacing: 2px; }
