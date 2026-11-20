@@ -123,8 +123,10 @@ class Updater:
 
     def restart(self):
         vbs = self.app_dir / "Prisma.vbs"
+        visible = getattr(self, "is_visible", None)
+        arg = " --show" if visible and visible() else ""
         # wait until this process has exited (single-instance lock), then start again
-        subprocess.Popen(f'cmd /c timeout /t 3 /nobreak >nul & wscript.exe "{vbs}"',
+        subprocess.Popen(f'cmd /c timeout /t 3 /nobreak >nul & wscript.exe "{vbs}"{arg}',
                          creationflags=0x08000000 | 0x00000008, close_fds=True)
         self.store.save(now=True)
         os._exit(0)

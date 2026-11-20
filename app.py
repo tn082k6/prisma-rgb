@@ -145,7 +145,7 @@ def main():
             return
 
     import webview
-    hidden = minimized or store.settings.get("start_minimized", False)
+    hidden = (minimized or store.settings.get("start_minimized", False)) and "--show" not in sys.argv
     window = webview.create_window("Prisma", "about:blank" if hidden else url, width=1400, height=900, min_size=(1120, 720), frameless=True,
                                    easy_drag=False, background_color="#07070c", hidden=hidden)
     api.window = window
@@ -167,6 +167,7 @@ def main():
 
     holder["show"] = show
     api.hide_cb = hide_to_tray
+    api.updater.is_visible = lambda: not state.get("blank")
 
     def quit_app():
         state["quitting"] = True

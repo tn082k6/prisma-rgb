@@ -593,7 +593,7 @@ function deviceCard(d) {
         ${mode === 'hw' ? `<select data-hwmode>${d.modes.filter(m => m.toLowerCase() !== 'direct').map(m => `<option ${ctl === 'hw:' + m ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>` : ''}</div>
         ${mode === 'hw' ? '<span class="hint">Der Effekt läuft direkt im Gerät – spart CPU, aber ohne Prisma-Szenen.</span>' : ''}</div>
       <div class="field"><div class="lbl"><span>Helligkeit dieses Geräts</span><span class="dim">über 100 % = Boost für dunkle Szenen</span></div><div class="range"><input type="range" min="0" max="200" value="${cfg.brightness}" data-dev-bri style="--p:${cfg.brightness / 2}%"><output>${cfg.brightness}%</output></div></div>
-      ${/wireless|lightspeed|hyperspeed|slipstream/i.test(d.name) ? `<div class="note">Funkgerät: Prisma sendet hier mit max. 15 FPS und frischt die Farben jede Sekunde auf, damit es nach dem Stromsparmodus sofort wieder mitmacht. Die Grundhelligkeit stellst du zusätzlich direkt am Gerät ein (Helligkeitstaste).</div>` : ''}
+      ${/wireless|lightspeed|hyperspeed|slipstream/i.test(d.name) ? `<div class="note">Funkgerät: max. 25 FPS, Farben werden jede Sekunde aufgefrischt. Die Grundhelligkeit stellst du am Gerät selbst ein (Helligkeitstaste).</div>` : ''}
       ${d.zones.map(z => zoneRow(d, z)).join('')}
     </div></div>`;
 }
