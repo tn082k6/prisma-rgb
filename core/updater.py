@@ -51,8 +51,9 @@ class Updater:
                 rel = json.loads(r.read().decode("utf-8"))
             latest = rel.get("tag_name", "")
             self._release = rel
+            skipped = latest and latest == self.store.settings.get("update_skip")
             self.state.update(latest=latest.lstrip("v"), notes=(rel.get("body") or "")[:2000],
-                              available=_ver(latest) > _ver(VERSION), checked_at=time.time())
+                              available=_ver(latest) > _ver(VERSION) and not skipped, checked_at=time.time())
         except urllib.error.HTTPError as e:
             self.state["error"] = "Noch kein Release veröffentlicht." if e.code == 404 else f"GitHub-Fehler {e.code}"
         except Exception as e:  # offline etc.
@@ -100,6 +101,12 @@ class Updater:
             src = roots[0] if len(roots) == 1 else tmp / "x"
             if not (src / "app.py").exists() or not (src / "core").is_dir():
                 raise RuntimeError("Update-Archiv hat nicht den erwarteten Aufbau")
+            # guard against restart loops: the archive must really contain a newer version
+            new_ver = _read_version(src / "core" / "version.py")
+            if _ver(new_ver) <= _ver(VERSION):
+                self.store.settings["update_skip"] = self._release.get("tag_name", "")
+                self.store.save()
+                raise RuntimeError(f"Release {self._release.get('tag_name')} enthält Version {new_ver} – übersprungen")
 
             old_req = _digest(self.app_dir / "requirements.txt")
             for item in src.iterdir():
@@ -130,6 +137,16 @@ class Updater:
                          creationflags=0x08000000 | 0x00000008, close_fds=True)
         self.store.save(now=True)
         os._exit(0)
+
+
+def _read_version(p):
+    try:
+        for line in Path(p).read_text("utf-8").splitlines():
+            if line.startswith("VERSION"):
+                return line.split("=", 1)[1].strip().strip("\"'")
+    except OSError:
+        pass
+    return "0"
 
 
 def _digest(p):
