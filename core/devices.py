@@ -129,11 +129,18 @@ class Backend:
             self.launch_openrgb()
             time.sleep(4)
 
+    def addr(self):
+        """OpenRGB address from the local settings; empty port = the OpenRGB library's standard port."""
+        import inspect
+        from openrgb import OpenRGBClient
+        s = self.store.settings
+        default_port = inspect.signature(OpenRGBClient.__init__).parameters["port"].default
+        return s.get("openrgb_host") or "localhost", int(s.get("openrgb_port") or default_port)
+
     def port_open(self):
         import socket
         try:
-            with socket.create_connection((self.store.settings.get("openrgb_host", "127.0.0.1"),
-                                           int(self.store.settings.get("openrgb_port", 6742))), timeout=0.4):
+            with socket.create_connection(self.addr(), timeout=0.4):
                 return True
         except OSError:
             return False
@@ -151,7 +158,8 @@ class Backend:
             return
         try:
             from openrgb import OpenRGBClient
-            client = OpenRGBClient(s.get("openrgb_host", "127.0.0.1"), int(s.get("openrgb_port", 6742)), "Prisma")
+            host, port = self.addr()
+            client = OpenRGBClient(host, port, "Prisma")
             with self.lock:
                 self.client = client
                 self._load_devices()
@@ -334,7 +342,7 @@ class Backend:
         path = s.get("openrgb_path", "")
         if not path or not os.path.exists(path):
             return False, "Pfad zu OpenRGB.exe ist nicht gesetzt oder existiert nicht."
-        args = f'--server --server-port {int(s.get("openrgb_port", 6742))}'
+        args = "--server" + (f' --server-port {int(s["openrgb_port"])}' if s.get("openrgb_port") else "")
         try:
             if s.get("openrgb_admin"):
                 # preferred: elevated scheduled task -> no UAC prompt

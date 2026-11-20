@@ -120,5 +120,36 @@ details.adv > summary { cursor: pointer; color: var(--muted); font-size: 12.5px;
 details.adv > summary::before { content: "›  "; }
 details.adv[open] > summary::before { content: "⌄  "; }
 details.adv > div { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+/* fans */
+.fan-top { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.ftile { flex: 1; min-width: 150px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.ftile b { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ftile small { color: var(--dim); font-size: 11px; }
+.ftile .dim { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; }
+.fan-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.fch { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--line); margin-bottom: 8px; }
+.fname { background: transparent !important; border: 1px solid transparent !important; font-weight: 600; font-size: 13.5px; padding: 3px 6px !important; margin-left: -6px; width: 200px; }
+.fname:hover { border-color: var(--line-2) !important; }
+.panel h4 .fname { font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.fbar { height: 4px; border-radius: 2px; background: #2a2a30; overflow: hidden; }
+.fbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .8s; }
+.fcurve { width: 100%; height: auto; display: block; touch-action: none; user-select: none; }
+.fcurve .g { stroke: #2a2a30; stroke-width: 1; }
+.fcurve .l { fill: var(--dim); font-size: 9px; text-anchor: middle; }
+.fcurve .p { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.fcurve .a { fill: rgba(46, 197, 255, .1); }
+.fcurve .pt { fill: #111113; stroke: var(--accent); stroke-width: 2.5; cursor: grab; }
+.fcurve .pt:hover { fill: var(--accent); }
+.fcurve .pt.on { fill: var(--accent); }
+.fcurve .tip { fill: #e8f8ff; }
+.fcurve .tipt { fill: #061a22; font-size: 10px; font-weight: 700; text-anchor: middle; }
+.ptable { margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.ptable .ph, .ptable .pr { display: grid; grid-template-columns: 1fr 1fr 36px; align-items: center; gap: 8px; padding: 5px 10px; }
+.ptable .ph { background: var(--bg2); color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.ptable .pr + .pr { border-top: 1px solid var(--line); }
+.ptable label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.ptable input { width: 64px; padding: 5px 8px; }
+.fcurve .live { fill: #ff8a3d; stroke: #111113; stroke-width: 1.5; }
+@media (max-width: 1250px) { .fan-grid { grid-template-columns: 1fr; } }
 .upd { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--line); }
 .upd.new { border-color: var(--accent); background: rgba(46, 197, 255, .07); }

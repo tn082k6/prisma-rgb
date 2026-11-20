@@ -59,6 +59,37 @@ class Api:
             "ha": self.ha.info() if getattr(self, "ha", None) else None,
         }
 
+    # ---------------------------------------------------------------- fans
+    def fan_status(self):
+        st = self.fans.status() if getattr(self, "fans", None) else None
+        return {"running": st is not None, "status": st, "task": self.fans.task_exists() if st is None else True,
+                "service_wanted": self.store.settings.get("fans_service", False)}
+
+    def fan_config(self, cfg):
+        return self.fans.request({"cmd": "config", "config": cfg})
+
+    def fan_profile(self, name):
+        return self.fans.set_profile(name)
+
+    def fan_enable(self, on):
+        return self.fans.request({"cmd": "enable", "on": bool(on)})
+
+    def fan_import(self):
+        return self.fans.request({"cmd": "import"})
+
+    def fan_setup(self):
+        """One UAC prompt: create the elevated task, retire FanControl, start the service."""
+        import ctypes
+        script = self.app_dir / "fansetup.ps1"
+        user = f'{os.environ.get("USERDOMAIN", "")}\\{os.environ.get("USERNAME", "")}'
+        args = f'-NoProfile -ExecutionPolicy Bypass -File "{script}" -User "{user}" -UserProfile "{os.environ["USERPROFILE"]}"'
+        r = ctypes.windll.shell32.ShellExecuteW(None, "runas", "powershell.exe", args, str(self.app_dir), 0)
+        if r <= 32:
+            return {"ok": False, "msg": "Einrichtung abgebrochen."}
+        self.store.settings["fans_service"] = True
+        self.store.save()
+        return {"ok": True, "msg": "Lüfter-Dienst wird eingerichtet …"}
+
     def ha_info(self):
         return self.ha.info() if getattr(self, "ha", None) else None
 
@@ -390,7 +421,8 @@ def serve(api, ui_dir, port=0):
                 log.exception("api %s", name)
                 self._send(500, json.dumps({"ok": False, "error": str(e)}).encode("utf-8"))
 
-    srv = ThreadingHTTPServer(("127.0.0.1", port), H)
+    import socket as _s
+    srv = ThreadingHTTPServer((_s.gethostbyname("localhost"), port), H)
     srv.daemon_threads = True
     threading.Thread(target=srv.serve_forever, daemon=True, name="http").start()
     return srv.server_address[1], token

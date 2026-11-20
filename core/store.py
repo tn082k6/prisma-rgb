@@ -17,18 +17,19 @@ DEFAULT_SETTINGS = {
     "smoothing": 25,
     "auto_update": True,
     "mqtt_enabled": False,
-    "mqtt_host": "",
-    "mqtt_port": 1883,
+    "mqtt_host": "",   # set by the user in the app – no network addresses in the code
+    "mqtt_port": None,  # empty = MQTT standard port
     "mqtt_user": "",
     "mqtt_pass": "",
     "removed_presets": [],
+    "fans_service": False,
     "transition_ms": 700,
     "gamma": 1.0,
     "saturation": 100,
     "wb_r": 100, "wb_g": 100, "wb_b": 100,
     "active_scene": "neon",
-    "openrgb_host": "127.0.0.1",
-    "openrgb_port": 6742,
+    "openrgb_host": "localhost",
+    "openrgb_port": None,  # empty = OpenRGB standard port
     "openrgb_path": "",
     "openrgb_autostart": True,
     "openrgb_admin": False,

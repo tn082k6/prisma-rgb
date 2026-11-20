@@ -85,24 +85,16 @@ def start_tray(api, store, engine, show_cb, quit_cb):
     return icon
 
 
-CONTROL_PORT = 47321
-
-
 def single_instance(show_cb_holder):
     """Returns False if another Prisma is running (and asks it to show its window)."""
-    import socket
+    from core import localport
     try:
-        with socket.create_connection(("127.0.0.1", CONTROL_PORT), timeout=0.5) as s:
+        with localport.connect("ui", timeout=0.5) as s:
             s.sendall(b"show")
         return False
     except OSError:
         pass
-    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        srv.bind(("127.0.0.1", CONTROL_PORT))
-    except OSError:
-        return True
-    srv.listen(2)
+    srv = localport.bind("ui")
 
     def loop():
         while True:
@@ -131,11 +123,14 @@ def main():
     api = Api(store, backend, engine, audio, APP_DIR)
     from core.updater import Updater
     api.updater = Updater(store, APP_DIR)
+    from core.fanclient import FanClient
+    api.fans = engine.fans = FanClient(store)
     from core.mqtt import HomeAssistantBridge
     api.ha = HomeAssistantBridge(store, engine)
+    api.ha.fans = api.fans
     port_arg = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--port=")), "0")
     port, token = serve(api, APP_DIR / "ui", int(port_arg))
-    url = f"http://127.0.0.1:{port}/?token={token}"
+    url = f"http://localhost:{port}/?token={token}"
     log.info("UI at %s", url.split("?")[0])
 
     if web:

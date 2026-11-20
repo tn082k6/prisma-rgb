@@ -301,7 +301,7 @@ function updateChrome() {
 /* ===================================================================
    SHELL
    =================================================================== */
-const PAGES = [['scenes', 'Szenen', 'scenes'], ['studio', 'Studio', 'studio'], ['devices', 'Geräte', 'devices'], ['schedule', 'Zeitplan', 'schedule'], ['settings', 'Einstellungen', 'settings']];
+const PAGES = [['scenes', 'Szenen', 'scenes'], ['studio', 'Studio', 'studio'], ['devices', 'Geräte', 'devices'], ['fans', 'Lüfter', 'fan'], ['schedule', 'Zeitplan', 'schedule'], ['settings', 'Einstellungen', 'settings']];
 function renderNav() {
   $('#nav').innerHTML = PAGES.map(([id, label, ic]) => {
     const count = id === 'scenes' ? S.scenes.length : id === 'devices' ? S.devices.length : id === 'schedule' ? (S.schedule.length || '') : '';
@@ -339,7 +339,7 @@ async function refresh() {
 }
 function renderPage() {
   const m = $('#main');
-  const fn = { scenes: pageScenes, studio: pageStudio, devices: pageDevices, schedule: pageSchedule, settings: pageSettings }[UI.page];
+  const fn = { scenes: pageScenes, studio: pageStudio, devices: pageDevices, fans: pageFans, schedule: pageSchedule, settings: pageSettings }[UI.page];
   const enter = UI.lastPage !== UI.page; UI.lastPage = UI.page;
   const top = m.scrollTop;
   m.innerHTML = `<div class="page ${enter ? 'enter' : ''}">${fn()}</div>`;
@@ -726,7 +726,8 @@ function schedItem(e, i) {
     <label class="switch"><input type="checkbox" data-sen ${e.enabled !== false ? 'checked' : ''}><span></span></label>
     <input type="time" data-stime value="${esc(e.time || '20:00')}">
     <div class="row wrap">
-      <select data-sact><option value="scene" ${act === 'scene' ? 'selected' : ''}>Szene wechseln</option><option value="brightness" ${act === 'brightness' ? 'selected' : ''}>Helligkeit setzen</option><option value="off" ${act === 'off' ? 'selected' : ''}>Licht aus</option><option value="on" ${act === 'on' ? 'selected' : ''}>Licht an</option></select>
+      <select data-sact><option value="scene" ${act === 'scene' ? 'selected' : ''}>Szene wechseln</option><option value="brightness" ${act === 'brightness' ? 'selected' : ''}>Helligkeit setzen</option><option value="off" ${act === 'off' ? 'selected' : ''}>Licht aus</option><option value="on" ${act === 'on' ? 'selected' : ''}>Licht an</option><option value="fanprofile" ${act === 'fanprofile' ? 'selected' : ''}>Lüfterprofil</option></select>
+      ${act === 'fanprofile' ? `<select data-sfan>${[['silent', 'Leise'], ['normal', 'Normal'], ['gaming', 'Gaming'], ['max', 'Volle Leistung']].map(([k, l]) => `<option value="${k}" ${e.profile === k ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}
       ${act === 'scene' ? `<select data-sscene>${S.scenes.map(s => `<option value="${s.id}" ${e.scene === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : ''}
       ${act === 'brightness' ? `<div class="range" style="min-width:200px"><input type="range" min="0" max="100" value="${e.value ?? 50}" data-sval style="--p:${e.value ?? 50}%"><output>${e.value ?? 50}%</output></div>` : ''}
     </div>
@@ -754,7 +755,7 @@ function pageSettings() {
       <details class="adv"><summary>Erweitert</summary><div>
       ${sw('openrgb_autostart', 'Dienst automatisch starten', 'Startet OpenRGB unsichtbar im Hintergrund, wenn Prisma startet.')}
       ${sw('openrgb_admin', 'Als Administrator starten', 'Nötig für RAM und Mainboard. Läuft über die Windows-Aufgabe „Prisma\\OpenRGB“ ohne Abfrage.')}
-      <div class="row"><div class="field grow"><span class="lbl">Host</span><input type="text" data-sett="openrgb_host" value="${esc(s.openrgb_host)}"></div><div class="field" style="width:110px"><span class="lbl">Port</span><input type="number" data-sett="openrgb_port" value="${s.openrgb_port}"></div></div>
+      <div class="row"><div class="field grow"><span class="lbl">Host</span><input type="text" data-sett="openrgb_host" value="${esc(s.openrgb_host)}"></div><div class="field" style="width:110px"><span class="lbl">Port</span><input type="number" data-sett="openrgb_port" value="${s.openrgb_port || ''}" placeholder="Standard"></div></div>
       </div></details>
       ${demo ? `<div class="note"><b>So verbindest du deine echte Hardware:</b><ol class="steps">
         <li>OpenRGB herunterladen von <b>openrgb.org</b> (kostenlos, Open Source) und den Ordner entpacken, z. B. nach <span class="mono">C:\\OpenRGB</span>.</li>
@@ -781,7 +782,7 @@ function pageSettings() {
     <div class="card panel"><h4>Home Assistant</h4>
       <div class="conn ${S.ha && S.ha.connected ? 'ok' : ''}" id="haConn"><span class="big"></span><div class="grow"><b>${S.ha && S.ha.connected ? 'Verbunden' : 'Nicht verbunden'}</b><div class="dim" style="font-size:12px">${esc(S.ha ? S.ha.status : '')}</div></div></div>
       ${sw('mqtt_enabled', 'Mit Home Assistant verbinden', 'Über MQTT. In Home Assistant erscheinen automatisch „PC-Licht“ und „PC-Szene“.')}
-      <div class="row"><div class="field grow"><span class="lbl">MQTT-Server</span><input type="text" data-sett="mqtt_host" value="${esc(s.mqtt_host)}"></div><div class="field" style="width:100px"><span class="lbl">Port</span><input type="number" data-sett="mqtt_port" value="${s.mqtt_port}"></div></div>
+      <div class="row"><div class="field grow"><span class="lbl">MQTT-Server</span><input type="text" data-sett="mqtt_host" value="${esc(s.mqtt_host || '')}" placeholder="z. B. homeassistant.local"></div><div class="field" style="width:100px"><span class="lbl">Port</span><input type="number" data-sett="mqtt_port" value="${s.mqtt_port || ''}" placeholder="Standard"></div></div>
       <div class="row"><div class="field grow"><span class="lbl">Benutzer</span><input type="text" data-sett="mqtt_user" value="${esc(s.mqtt_user)}" autocomplete="off"></div><div class="field grow"><span class="lbl">Passwort</span><input type="password" data-sett="mqtt_pass" value="${s.mqtt_pass ? '••••••••' : ''}" autocomplete="new-password" data-secret></div></div>
       ${S.ha && S.ha.connected ? `<div class="note">In Home Assistant: <span class="mono">${esc(S.ha.light)}</span> und <span class="mono">${esc(S.ha.select)}</span></div>` : '<span class="hint">Tipp: In Home Assistant unter Einstellungen → Personen einen eigenen Benutzer „prisma“ anlegen und hier eintragen.</span>'}
     </div>
@@ -877,6 +878,7 @@ function coerce(v) { return v === 'true' ? true : v === 'false' ? false : (v !==
 function zoneCtx(t) { const dv = device(t.closest('[data-dev]').dataset.dev); const zi = +t.closest('[data-zone]').dataset.zone; return { dv, zi }; }
 
 async function action(a, t) {
+  if (a.startsWith('fan-')) return fanAction(a);
   const sc = editScene();
   switch (a) {
     case 'new-scene': { const s = await api('new_scene', 'Neue Szene'); await refresh(); UI.editId = s.id; UI.layerId = null; UI.tab = 'effect'; return go('studio'); }
@@ -941,7 +943,7 @@ document.addEventListener('change', async e => {
   if (d.set) { S.settings[d.set] = t.checked; await api('set_settings', { [d.set]: t.checked }); if (d.set.startsWith('mqtt_')) haRefresh(); return; }
   if (d.sett) {
     if (d.secret !== undefined && t.value === '••••••••') return;
-    const v = t.type === 'number' ? +t.value : t.value; if (d.secret === undefined) S.settings[d.sett] = v;
+    const v = t.type === 'number' ? (t.value === '' ? null : +t.value) : t.value; if (d.secret === undefined) S.settings[d.sett] = v;
     await api('set_settings', { [d.sett]: v }); if (d.sett.startsWith('mqtt_')) haRefresh(); return;
   }
   if (t.id === 'orgbPath') { S.settings.openrgb_path = t.value.trim(); await api('set_settings', { openrgb_path: t.value.trim() }); return renderPage(); }
@@ -955,6 +957,7 @@ document.addEventListener('change', async e => {
   if (d.sen !== undefined) { S.schedule[+t.closest('[data-si]').dataset.si].enabled = t.checked; return saveSchedule(false); }
   if (d.stime !== undefined) { S.schedule[+t.closest('[data-si]').dataset.si].time = t.value; return saveSchedule(false); }
   if (d.sact !== undefined) { const e2 = S.schedule[+t.closest('[data-si]').dataset.si]; e2.action = t.value; if (t.value === 'scene' && !e2.scene) e2.scene = S.scenes[0].id; return saveSchedule(); }
+  if (d.sfan !== undefined) { S.schedule[+t.closest('[data-si]').dataset.si].profile = t.value; return saveSchedule(false); }
   if (d.sscene !== undefined) { S.schedule[+t.closest('[data-si]').dataset.si].scene = t.value; return saveSchedule(false); }
 });
 document.addEventListener('toggle', e => { const t = e.target; if (t.dataset && t.dataset.palopen !== undefined) UI.palOpen = t.open ? t.dataset.palopen : null; }, true);

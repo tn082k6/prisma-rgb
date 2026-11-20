@@ -240,6 +240,11 @@ class Engine:
                 self.store.settings["power"] = True
             elif act == "brightness":
                 self.store.settings["master"] = int(e.get("value", 50))
+            elif act == "fanprofile" and getattr(self, "fans", None):
+                try:
+                    self.fans.set_profile(e.get("profile") or "silent")
+                except OSError:
+                    pass
             self.store.save()
 
     def _loop(self):

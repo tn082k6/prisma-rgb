@@ -15,6 +15,7 @@ import time
 from .version import VERSION
 
 log = logging.getLogger("prisma.mqtt")
+FAN_PROFILES = {"silent": "Leise", "normal": "Normal", "gaming": "Gaming", "max": "Volle Leistung"}
 
 
 class HomeAssistantBridge:
@@ -40,6 +41,9 @@ class HomeAssistantBridge:
             if not s.get("mqtt_enabled"):
                 self.status = "Aus"
                 return
+            if not s.get("mqtt_host"):
+                self.status = "Bitte MQTT-Server eintragen"
+                return
             try:
                 import paho.mqtt.client as mqtt
             except Exception as e:
@@ -56,7 +60,10 @@ class HomeAssistantBridge:
             self.client = c
             self.status = "Verbinde …"
             try:
-                c.connect_async(s.get("mqtt_host", ""), int(s.get("mqtt_port", 1883)), 30)
+                if s.get("mqtt_port"):
+                    c.connect_async(s["mqtt_host"], int(s["mqtt_port"]), 30)
+                else:
+                    c.connect_async(s["mqtt_host"], keepalive=30)  # library default = MQTT standard port
                 c.loop_start()
             except Exception as e:
                 self.status = f"Fehler: {e}"
@@ -83,6 +90,7 @@ class HomeAssistantBridge:
         self.status = "Verbunden mit Home Assistant"
         c.subscribe(f"{self.base}/light/set")
         c.subscribe(f"{self.base}/scene/set")
+        c.subscribe(f"{self.base}/fanprofile/set")
         c.subscribe("homeassistant/status")
         self._last_names = None
         self._last_state = None
@@ -103,7 +111,11 @@ class HomeAssistantBridge:
                 self._publish_discovery()
                 self._publish_state(force=True)
                 return
-            if msg.topic.endswith("/scene/set"):
+            if msg.topic.endswith("/fanprofile/set"):
+                key = next((k for k, v in FAN_PROFILES.items() if v == payload or k == payload), None)
+                if key and getattr(self, "fans", None):
+                    self.fans.set_profile(key)
+            elif msg.topic.endswith("/scene/set"):
                 self._apply_scene_name(payload)
             elif msg.topic.endswith("/light/set"):
                 cmd = json.loads(payload)
@@ -159,6 +171,10 @@ class HomeAssistantBridge:
                   "options": names, "icon": "mdi:palette", "device": self._device(), **avail}
         c.publish(f"homeassistant/light/{self.node}/licht/config", json.dumps(light, ensure_ascii=False), retain=True)
         c.publish(f"homeassistant/select/{self.node}/szene/config", json.dumps(select, ensure_ascii=False), retain=True)
+        fans = {"name": "PC-Lüfterprofil", "unique_id": f"{self.node}_fanprofile", "object_id": f"{self.node}_lueftprofil",
+                "command_topic": f"{self.base}/fanprofile/set", "state_topic": f"{self.base}/fanprofile/state",
+                "options": list(FAN_PROFILES.values()), "icon": "mdi:fan", "device": self._device(), **avail}
+        c.publish(f"homeassistant/select/{self.node}/lueftprofil/config", json.dumps(fans, ensure_ascii=False), retain=True)
 
     def _publish_state(self, force=False):
         c = self.client
@@ -167,13 +183,16 @@ class HomeAssistantBridge:
         s = self.store.settings
         sc = self.store.scene(s.get("active_scene"))
         name = sc["name"] if sc else ""
-        st = (bool(s.get("power", True)), int(s.get("master", 100)), name)
+        fp = FAN_PROFILES.get(self.fans.profile() if getattr(self, "fans", None) else None, "")
+        st = (bool(s.get("power", True)), int(s.get("master", 100)), name, fp)
         if st == self._last_state and not force:
             return
         self._last_state = st
         c.publish(f"{self.base}/light/state", json.dumps({"state": "ON" if st[0] else "OFF", "brightness": st[1],
                                                           "effect": name}, ensure_ascii=False), retain=True)
         c.publish(f"{self.base}/scene/state", name, retain=True)
+        if fp:
+            c.publish(f"{self.base}/fanprofile/state", fp, retain=True)
 
     def _watch(self):
         while True:
