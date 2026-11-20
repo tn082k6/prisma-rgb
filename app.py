@@ -224,7 +224,8 @@ def main():
 
     window.events.closing += on_closing
     start_tray(api, store, engine, show, quit_app)
-    webview.start(private_mode=False, storage_path=str(DATA_DIR / "webview"))
+    # icon= makes pywebview use the Prisma logo for the window/taskbar instead of pythonw.exe's Python icon
+    webview.start(private_mode=False, storage_path=str(DATA_DIR / "webview"), icon=str(APP_DIR / "ui" / "prisma.ico"))
     quit_app()
 
 
