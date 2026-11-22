@@ -118,9 +118,22 @@ class Backend:
                 try:
                     if not self.client.comms.connected:
                         raise ConnectionError
+                    self._check_device_list()
                 except Exception:
                     self._drop("Verbindung zu OpenRGB verloren")
             time.sleep(3)
+
+    def _check_device_list(self):
+        """Pick up devices OpenRGB detects after we connected (at boot it serves the list while still scanning)."""
+        with self.lock:
+            self.client.comms.requestDeviceNum()  # cheap; the library refetches the list if the count changed
+            devs = self.client.devices
+            if len(devs) != len(self.devices) and all(d is not None for d in devs):
+                old = len(self.devices)
+                self._load_devices()
+                self._restore_sizes()
+                self.status = f"Verbunden mit OpenRGB · {len(self.devices)} Geräte"
+                log.info("Geräteliste geändert: %d → %d Geräte", old, len(self.devices))
 
     def _autostart_openrgb(self):
         s = self.store.settings
